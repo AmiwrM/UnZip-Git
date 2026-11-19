@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>UnzipGit — unzip archives into a GitHub repository</title>
+    <meta
+      name="description"
+      content="Extract a .zip archive straight into a GitHub repository. 100% client-side: your browser talks to the GitHub API directly."
+    />
+    <meta name="theme-color" content="#eef2f7" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style/style.css" />
+    <script>
+      // Apply the saved theme before paint to avoid a flash of the wrong colours.
+      try {
+        var saved = localStorage.getItem("unzipgit:theme");
+        document.documentElement.dataset.theme =
+          saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      } catch (e) {}
+    </script>
+    <script src="script/jszip.min.js" defer></script>
+    <script src="script/app.js" defer></script>
+  </head>
+  <body>
+    <div class="glow glow--one" aria-hidden="true"></div>
+    <div class="glow glow--two" aria-hidden="true"></div>
+
+    <main class="wrap">
+      <header class="header">
+        <a class="brand" href="./" aria-label="UnzipGit">
+          <svg class="brand__icon" viewBox="0 0 48 48" aria-hidden="true">
+            <defs>
+              <linearGradient id="brandGradient" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#5c93ff" />
+                <stop offset="1" stop-color="#0052ef" />
+              </linearGradient>
+            </defs>
+            <rect width="48" height="48" rx="14" fill="url(#brandGradient)" />
+            <path
+              d="M14 17.5h7.6l2.7 3H34a2 2 0 0 1 2 2V33a2 2 0 0 1-2 2H14a2 2 0 0 1-2-2V19.5a2 2 0 0 1 2-2Z"
+              fill="#fff"
+              opacity=".94"
+            />
+            <path
+              d="M24 21.5v7.4m0 0 3.1-3.1M24 28.9l-3.1-3.1"
+              fill="none"
+              stroke="#0052ef"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="brand__text">unzip<b>git</b></span>
+        </a>
+
+        <div class="header__side">
+          <p class="tagline" data-i18n="tagline">unzip archives into a GitHub repository</p>
+          <div class="controls">
+            <button class="chip" id="themeBtn" type="button" data-i18n-aria="themeToggle" aria-label="Toggle dark mode">
+              <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4.2" />
+                <path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" />
+              </svg>
+              <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5a8.6 8.6 0 1 0 10.7 10.7Z" />
+              </svg>
+            </button>
+            <button class="chip chip--lang" id="langBtn" type="button">فارسی</button>
+          </div>
+        </div>
+      </header>
+
+      <form id="unzipForm" class="form" novalidate>
+        <div class="card">
+          <label class="field" for="username">
+            <span class="field__top">
+              <span class="field__label" data-i18n="username">username</span>
+              <span class="field__hint" data-i18n="usernameHint">optional if included in repository</span>
+            </span>
+            <input
+              class="field__input"
+              id="username"
+              name="username"
+              type="text"
+              placeholder="octocat"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+            />
+          </label>
+
+          <label class="field" for="repository">
+            <span class="field__top">
+              <span class="field__label" data-i18n="repository">repository</span>
+              <span class="field__hint" data-i18n="repoHint">repo or repo/folder</span>
+            </span>
+            <input
+              class="field__input"
+              id="repository"
+              name="repository"
+              type="text"
+              placeholder="hello-world"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+            />
+          </label>
+
+          <label class="field field--token" for="token">
+            <span class="field__top">
+              <span class="field__label" data-i18n="token">token</span>
+              <span class="field__hint">
+                <a
+                  href="https://github.com/settings/tokens/new?scopes=repo&amp;description=UnzipGit"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="tokenHint"
+                  >get token</a
+                >
+                <span data-i18n="tokenScope">with “repo” scope</span>
+              </span>
+            </span>
+            <input
+              class="field__input"
+              id="token"
+              name="token"
+              type="password"
+              placeholder="ghp_…"
+              autocomplete="new-password"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+            />
+            <button class="field__reveal" id="revealBtn" type="button" aria-label="Show token" aria-pressed="false">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 3l18 18M10.6 6.1A10.9 10.9 0 0 1 12 6c6 0 9.5 6 9.5 6a17.6 17.6 0 0 1-2.2 2.9M6.2 7.4A16.5 16.5 0 0 0 2.5 12S6 18 12 18a10 10 0 0 0 4.3-.9" />
+                <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+              </svg>
+            </button>
+          </label>
+
+          <div class="filegroup">
+            <label class="field field--archive" for="archivePath">
+              <span class="field__top">
+                <span class="field__label" data-i18n="archivePath">archive in repo</span>
+                <span class="field__hint" data-i18n="archivePathHint">or pick a file</span>
+              </span>
+              <input
+                class="field__input"
+                id="archivePath"
+                name="archivePath"
+                type="text"
+                placeholder="folder/archive.zip"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+              />
+            </label>
+
+            <label class="pick" id="pickZone" for="archiveFile">
+              <input
+                class="pick__input"
+                id="archiveFile"
+                name="archiveFile"
+                type="file"
+                accept=".zip,application/zip,application/x-zip-compressed"
+                hidden
+              />
+              <svg class="pick__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13.5 3H6.8A1.8 1.8 0 0 0 5 4.8v14.4A1.8 1.8 0 0 0 6.8 21h10.4a1.8 1.8 0 0 0 1.8-1.8V8.5L13.5 3Z" />
+                <path d="M13.5 3v5.5H19" />
+                <path d="M10.5 7.5v1.6m0 2.4v1.6m0 2.4v1.6" />
+              </svg>
+              <span class="pick__text">
+                <span class="pick__label" data-i18n="selectArchive">select archive</span>
+                <span class="pick__name" id="pickName"></span>
+                <span class="pick__size" id="pickSize"></span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <details class="advanced">
+          <summary class="advanced__summary">
+            <span data-i18n="advanced">Advanced</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
+          <div class="advanced__body">
+            <label class="field" for="branch">
+              <span class="field__top">
+                <span class="field__label" data-i18n="branch">branch</span>
+                <span class="field__hint" data-i18n="branchHint">default branch</span>
+              </span>
+              <input
+                class="field__input"
+                id="branch"
+                name="branch"
+                type="text"
+                placeholder="main"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+              />
+            </label>
+
+            <label class="field" for="commitMessage">
+              <span class="field__top">
+                <span class="field__label" data-i18n="commitMessage">commit message</span>
+                <span class="field__hint" data-i18n="commitMessageHint">optional</span>
+              </span>
+              <input
+                class="field__input"
+                id="commitMessage"
+                name="commitMessage"
+                type="text"
+                placeholder="unzipgit: unzip archive"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </label>
+          </div>
+        </details>
+
+        <button class="submit" id="submitBtn" type="submit">
+          <span class="submit__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v11m0 0 4-4m-4 4-4-4" />
+              <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+            </svg>
+          </span>
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="submit__label" id="submitLabel" data-i18n="submit">Unzip into GitHub</span>
+        </button>
+      </form>
+
+      <footer class="footer">
+        <span class="footer__badge" data-i18n="clientSide">100% client-side</span>
+        <a class="footer__link" href="https://docs.github.com/rest" target="_blank" rel="noopener" data-i18n="apiDocs">GitHub API</a>
+        <button class="footer__link" id="readmeBtn" type="button" data-i18n="readme">readme</button>
+      </footer>
+    </main>
+
+    <div class="toast" id="toast" data-kind="info" role="status" aria-live="polite" aria-hidden="true">
+      <div class="toast__body">
+        <div class="toast__title" id="toastTitle"></div>
+        <div class="toast__info" id="toastInfo"></div>
+        <a class="toast__link" id="toastLink" href="#" target="_blank" rel="noopener" hidden></a>
+        <div class="toast__progress" id="toastProgress" hidden><span id="toastBar"></span></div>
+      </div>
+      <button class="toast__close" id="toastClose" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+    </div>
+
+    <dialog class="modal" id="readmeDialog">
+      <div class="modal__head">
+        <h2 data-i18n="readmeTitle">readme</h2>
+        <button class="modal__close" id="closeReadme" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal__body" data-lang="en">
+        <p>
+          UnzipGit extracts a <code>.zip</code> archive straight into a GitHub repository. Everything runs in your
+          browser — the archive and your token are sent only to <code>api.github.com</code>.
+        </p>
+        <h3>Quick start</h3>
+        <ol>
+          <li>
+            Create a
+            <a href="https://github.com/settings/tokens/new?scopes=repo&amp;description=UnzipGit" target="_blank" rel="noopener"
+              >personal access token</a
+            >
+            with the <code>repo</code> scope. For fine-grained tokens use <em>Contents: read &amp; write</em>.
+          </li>
+          <li>Enter the repository owner and name, e.g. <code>octocat/hello-world</code>.</li>
+          <li>Optionally add a folder after the repo name, e.g. <code>hello-world/site</code>, to extract into it.</li>
+          <li>Pick a <code>.zip</code> from your device, or give the path of an archive already in the repo.</li>
+          <li>Press <strong>Unzip into GitHub</strong>.</li>
+        </ol>
+        <h3>Good to know</h3>
+        <ul>
+          <li>The token is never stored; it only lives in memory for this page.</li>
+          <li>
+            Files are committed in one atomic commit when possible. If that is blocked, UnzipGit falls back to
+            uploading file by file.
+          </li>
+          <li>Existing files with the same path are overwritten, everything else is left untouched.</li>
+          <li>The default branch is used unless you choose another one under “Advanced”.</li>
+          <li>Up to 1500 files per archive. Very large archives can hit GitHub API rate limits.</li>
+        </ul>
+      </div>
+
+      <div class="modal__body" data-lang="fa">
+        <p>
+          UnzipGit آرشیو <code>.zip</code> را مستقیماً داخل یک مخزن گیت‌هاب از حالت فشرده خارج می‌کند. همه‌چیز در
+          مرورگر شما اجرا می‌شود — آرشیو و توکن فقط به <code>api.github.com</code> فرستاده می‌شوند.
+        </p>
+        <h3>شروع سریع</h3>
+        <ol>
+          <li>
+            یک
+            <a href="https://github.com/settings/tokens/new?scopes=repo&amp;description=UnzipGit" target="_blank" rel="noopener"
+              >توکن دسترسی شخصی</a
+            >
+            با دسترسی <code>repo</code> بسازید. برای توکن‌های Fine-grained از <em>Contents: read &amp; write</em> استفاده کنید.
+          </li>
+          <li>مالک و نام مخزن را وارد کنید، مثلاً <code>octocat/hello-world</code>.</li>
+          <li>اختیاری: بعد از نام مخزن یک پوشه اضافه کنید، مثل <code>hello-world/site</code>، تا فایل‌ها داخل آن باز شوند.</li>
+          <li>یک فایل <code>.zip</code> از دستگاه انتخاب کنید یا مسیر آرشیوی که از قبل در مخزن است را بنویسید.</li>
+          <li>روی <strong>از حالت فشرده خارج کن</strong> بزنید.</li>
+        </ol>
+        <h3>نکته‌ها</h3>
+        <ul>
+          <li>توکن ذخیره نمی‌شود و فقط در حافظهٔ همین صفحه می‌ماند.</li>
+          <li>
+            در صورت امکان همهٔ فایل‌ها در یک کامیت اتمیک ثبت می‌شوند. اگر این روش مسدود باشد، آپلود فایل‌به‌فایل
+            انجام می‌شود.
+          </li>
+          <li>فایل‌های هم‌نام بازنویسی می‌شوند و بقیهٔ فایل‌ها دست‌نخورده می‌مانند.</li>
+          <li>به‌طور پیش‌فرض شاخهٔ اصلی مخزن استفاده می‌شود؛ از بخش «پیشرفته» می‌توانید شاخهٔ دیگری بدهید.</li>
+          <li>حداکثر ۱۵۰۰ فایل در هر آرشیو. آرشیوهای بزرگ ممکن است به محدودیت نرخ API گیت‌هاب بخورند.</li>
+        </ul>
+      </div>
+    </dialog>
+  </body>
+</html>
